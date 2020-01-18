@@ -1,7 +1,7 @@
 EXECUTABLE	:= word-frequency-count
 
 $(EXECUTABLE):
-	g++ -g -Wall -o $(EXECUTABLE) $(EXECUTABLE).cpp 
+	g++ -g -Wall -pthread -o $(EXECUTABLE) $(EXECUTABLE).cpp 
 
 clean:
 	-rm $(EXECUTABLE)

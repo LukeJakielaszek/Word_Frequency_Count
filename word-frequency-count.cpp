@@ -3,8 +3,20 @@
 #include <string>
 #include <fstream>
 #include <vector>
+#include <pthread.h>
+#include <iterator>
+#include <algorithm>
 
 using namespace std;
+
+struct thread_wrapper{
+	int start;
+	int end;
+	int thread_id;
+	vector<string> *words;
+};
+
+void* thread_count(void *params);
 
 int main(int argc, char ** argv) {
 	// ensure proper command line arguments	
@@ -12,7 +24,7 @@ int main(int argc, char ** argv) {
 		printf("ERROR: Invalid Number of Command Line Arguments [%d]\n", argc);
 		return -1;
 	}
-	
+
 	// get number of segments
 	int num_segments = atoi(argv[2]);
 
@@ -26,17 +38,13 @@ int main(int argc, char ** argv) {
 	ifstream input_stream;
 	input_stream.open(in_file);
 
-	// buffer for reading
-	char buffer[100];
-
 	// vector of read words
 	vector<string> words;
 
-
 	// attempt to read file
 	if (input_stream.is_open()) {
-		// number of words
-		int count = 0;
+		// buffer for reading
+		char buffer[100];
 
 		// read each word
 		while (!input_stream.eof()) {
@@ -45,13 +53,10 @@ int main(int argc, char ** argv) {
 
 			// add word to vector
 			words.push_back(buffer);
-
-			// increment count
-			count++;
 		}
 
 		// display number of words read
-		printf("Read %d words\n", count);
+		printf("Read %lu words\n", words.size());
 
 		// close the file stream
 		input_stream.close();
@@ -61,12 +66,78 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 
-	// display contents of vector
-	for (string word : words){
-		cout << word;
-		cout << " ";
+	// start location for each thread
+	int start = 0;
+	
+	// end location for each thread
+	int end = 0;
+
+	// number of words each thread should process
+	int delta = words.size() / num_segments;
+
+	// our worker threads
+	pthread_t threads[num_segments];
+
+	for(int i = 0; i < num_segments; i++){
+		// update our end location
+		if(i == num_segments - 1){
+			// if final segment, go all the way to the end of our vector of words
+			end = words.size()-1;
+		}else{
+			// increment end by the calculated delta to ensure evenness of lead on each thread
+			end += delta;
+		}
+
+		// declare a wrapper struct to pass multiple items to thread
+		thread_wrapper thread_params;
+
+		// store a reference to the vector of words
+		thread_params.words = &words;
+
+		// store the start and end location for the thread to work within the word vector
+		thread_params.start = start;
+		thread_params.end = end;
+
+		// store the thread_id for debugging
+		thread_params.thread_id = i;
+
+		// create our thread
+		pthread_create(&threads[i], NULL, thread_count, (void*)&thread_params);
+		
+		// update the start location to the current end location
+		start = end;
 	}
 
-	cout << "\n";
+	// main waits for each thread to finish
+	for(int i = 0; i < num_segments; i++){
+		pthread_join(threads[i], NULL);
+	}
+
+	cout << "DONE\n";
+
+	return 0;
+}
+
+void* thread_count(void *params){
+	// unpack parameters
+	thread_wrapper thread_params = *(thread_wrapper*)params;
+	int start = thread_params.start;
+	int end = thread_params.end;
+	vector<string> words = *thread_params.words;
+
+	// create an iterator at the start of the current thread's section
+	vector<string>::iterator iter = words.begin() + start;
+
+	// iterate through the thread's assigned section of vector of words
+	for(int i = start; i < end; i++){
+		// grab the current word
+		string word = (string)*iter;
+
+		// adjust iterator to next location
+		iter = next(iter, 1);
+	}
+
+	printf("Start %d, end %d, delta %d\n", start, end, end-start);
+	
 	return 0;
 }
