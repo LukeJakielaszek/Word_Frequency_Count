@@ -7,6 +7,7 @@
 #include <iterator>
 #include <algorithm>
 #include <ctype.h>
+#include <map>
 
 using namespace std;
 
@@ -14,6 +15,7 @@ struct thread_wrapper{
 	int start;
 	int end;
 	int thread_id;
+	map<string, int> *freq_map;
 	vector<string> *words;
 };
 
@@ -79,6 +81,9 @@ int main(int argc, char ** argv) {
 	// our worker threads
 	pthread_t threads[num_segments];
 
+	// per thread dictionaries to count word frequency
+	vector<map<string, int>*> frequency_maps;
+
 	for(int i = 0; i < num_segments; i++){
 		// update our end location
 		if(i == num_segments - 1){
@@ -94,6 +99,11 @@ int main(int argc, char ** argv) {
 
 		// store a reference to the vector of words
 		thread_params.words = &words;
+
+		// create and store a reference to the current threads dictionary
+		map<string, int> freq_map;
+		frequency_maps.push_back(&freq_map);
+		thread_params.freq_map = &freq_map;
 
 		// store the start and end location for the thread to work within the word vector
 		thread_params.start = start;
@@ -125,6 +135,7 @@ void* thread_count(void *params){
 	int start = thread_params.start;
 	int end = thread_params.end;
 	vector<string> words = *thread_params.words;
+	map<string, int> freq_map = *thread_params.freq_map;
 
 	// create an iterator at the start of the current thread's section
 	vector<string>::iterator iter = words.begin() + start;
