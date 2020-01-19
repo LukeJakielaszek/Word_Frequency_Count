@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <iterator>
 #include <algorithm>
+#include <ctype.h>
 
 using namespace std;
 
@@ -120,7 +121,7 @@ int main(int argc, char ** argv) {
 
 void* thread_count(void *params){
 	// unpack parameters
-	thread_wrapper thread_params = *(thread_wrapper*)params;
+	thread_wrapper thread_params = *reinterpret_cast<thread_wrapper*>(params);
 	int start = thread_params.start;
 	int end = thread_params.end;
 	vector<string> words = *thread_params.words;
@@ -133,6 +134,17 @@ void* thread_count(void *params){
 		// grab the current word
 		string word = (string)*iter;
 
+		// preprocessed word
+		string temp = "";
+
+		// remove non alphabetical characters and convert to uppercase
+		for(char c : word){
+			if(isalpha(c)){
+				c = toupper(c);
+				temp += c;
+			}
+		}
+		
 		// adjust iterator to next location
 		iter = next(iter, 1);
 	}
