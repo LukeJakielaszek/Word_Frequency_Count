@@ -21,6 +21,8 @@ struct thread_wrapper{
 
 void* thread_count(void *params);
 map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps);
+void display_map(map<string, int> map_a);
+void free_vect(vector<map<string, int>*> *maps);
 
 int main(int argc, char ** argv) {
 	// ensure proper command line arguments	
@@ -102,9 +104,10 @@ int main(int argc, char ** argv) {
 		thread_params.words = &words;
 
 		// create and store a reference to the current threads dictionary
-		map<string, int> freq_map;
-		frequency_maps.push_back(&freq_map);
-		thread_params.freq_map = &freq_map;
+		map<string, int> *freq_map = new map<string,int>();
+
+		frequency_maps.push_back(freq_map);
+		thread_params.freq_map = freq_map;
 
 		// store the start and end location for the thread to work within the word vector
 		thread_params.start = start;
@@ -129,11 +132,28 @@ int main(int argc, char ** argv) {
 
 	map<string, int> *map_sum = combine_dicts(&frequency_maps);
 
-	for(auto map_iter = map_sum->begin(); map_iter != map_sum->end(); ++map_iter){
-		cout << map_iter->first << ": " << map_iter->second << endl;
-	}
+	// free the allocated maps within the vector
+	free_vect(&frequency_maps);
+
+	display_map(*map_sum);
 
 	return 0;
+}
+
+void free_vect(vector<map<string, int>*> *maps){
+	for(vector<map<string,int>*>::iterator it = maps->begin(); it != maps->end(); ++it){
+		map<string,int> * map_a = *it;
+
+		delete map_a;
+	}
+}
+
+void display_map(map<string, int> map_a){
+	for(map<string, int>::iterator iter = map_a.begin(); iter != map_a.end(); ++iter){
+		cout << "[" << iter->first << "] : [" << iter->second << "]" << endl;
+	}
+
+	cout << "Size " << map_a.size() << endl;
 }
 
 map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps){
@@ -183,7 +203,7 @@ void* thread_count(void *params){
 	int start = thread_params.start;
 	int end = thread_params.end;
 	vector<string> words = *thread_params.words;
-	map<string, int> freq_map = *thread_params.freq_map;
+	map<string, int> *freq_map = thread_params.freq_map;
 
 	// iterate through the thread's assigned section of vector of words
 	for(vector<string>::iterator iter = words.begin() + start; iter != words.begin() + end; ++ iter){
@@ -207,17 +227,16 @@ void* thread_count(void *params){
 		}
 		
 		// check if word is in dictionary
-		auto map_iter = freq_map.find(temp);
+		auto map_iter = freq_map->find(temp);
 
-		if(map_iter != freq_map.end()){
+		if(map_iter != freq_map->end()){
 			// increment our words count
 			map_iter->second++;
 		}else{
 			// add the word to our dictionary, set count to zero
-			freq_map.insert({temp, 0});
-			cout << temp << endl;
+			freq_map->insert({temp, 1});
 		}
 	}
-	
+
 	return 0;
 }
