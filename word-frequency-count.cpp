@@ -12,18 +12,31 @@
 
 using namespace std;
 
+// output file name
+const string out_file_name = "hw1_out.txt";
+
+// struct to pass multiple items to thread
 struct thread_wrapper{
+	// location where thread should start processing words
 	int start;
+
+	// location where thread should stop processing words
 	int end;
+
+	// id of thread for debugging
 	int thread_id;
+
+	// a frequency map for individual threads to compose
 	map<string, int> *freq_map;
+
+	// the words obtained from input file
 	vector<string> *words;
 };
 
 void* thread_count(void *params);
 map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps);
-void display_map(map<string, int> map_a);
 void free_vect(vector<map<string, int>*> *maps);
+int write_output(const string *out_file, int num_threads, const string *in_file, double exec_time, map<string, int> freq_map);
 
 int main(int argc, char ** argv) {
 	// get the start execution time
@@ -35,14 +48,16 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 
+	// get file name
+	string in_file(argv[1]);
+
 	// get number of segments
 	int num_segments = atoi(argv[2]);
 
-	// get file name
-	string in_file(argv[1]);
-	
-	// display both
-	printf("Splitting [%s] into %d segments\n", in_file.c_str(), num_segments);
+	if(num_segments <= 0){
+		printf("ERROR: Number of segments must be positive. User input [%d]\n", num_segments);
+		return -1;
+	}
 	
 	// set up file reading stream
 	ifstream input_stream;
@@ -135,22 +150,53 @@ int main(int argc, char ** argv) {
 	// free the allocated maps within the vector
 	free_vect(&frequency_maps);
 
-	// display the final map
-	display_map(*map_sum);
-
-	// free the final map
-	delete map_sum;
-
 	// get the end execution time
 	auto end_time = chrono::high_resolution_clock::now();
 
 	// cast the total execution time to milliseconds
 	double execution_time = chrono::duration_cast<chrono::milliseconds>(end_time-start_time).count();
 
-	// display execution time
-	printf("Execution Time : [%lf] milliseconds\n", execution_time);
+	write_output(&out_file_name, num_segments, &in_file, execution_time, *map_sum);
+
+	// free the final map
+	delete map_sum;
 
 	return 0;
+}
+
+int write_output(const string *out_file, int num_threads, const string *in_file, double exec_time, map<string, int> freq_map){
+	// set up file writing stream
+	ofstream out_stream;
+	out_stream.open(*out_file);
+
+	// attempt to write to file
+	if (out_stream.is_open()) {
+		// write number of threads created
+		out_stream << "Number of Threads : [" << num_threads << "]" << endl;
+
+		// write the input file name
+		out_stream << "Input File Name : [" << *in_file << "]" << endl;
+
+		// write the total execution time
+		out_stream << "Execution Time (milliseconds) : [" << exec_time << "]" << endl << endl;
+
+		// write the word frequencies
+		out_stream << "Word Frequency :" << endl;
+
+		// loop through all keys in map
+		for(auto map_it = freq_map.begin(); map_it != freq_map.end(); ++map_it){
+			// display the key and count
+			out_stream << "\t[" << map_it->first << "] : [" << map_it->second << "]" << endl;
+		}
+
+		// close the file stream
+		out_stream.close();
+		return 0;
+	} else {
+		// error in opening file
+		printf("ERROR: Failed to Open File [%s]\n", out_file->c_str());
+		return -1;
+	}
 }
 
 // free a vector with malloc'd indices
@@ -160,18 +206,6 @@ void free_vect(vector<map<string, int>*> *maps){
 		// free each indice
 		delete *it;
 	}
-}
-
-// display all keys with corresponding count of a map
-void display_map(map<string, int> map_a){
-	// loop through each key
-	for(auto iter = map_a.begin(); iter != map_a.end(); ++iter){
-		// display the key and count
-		cout << "[" << iter->first << "] : [" << iter->second << "]" << endl;
-	}
-
-	// display the size of the map
-	cout << "Size " << map_a.size() << endl;
 }
 
 // combines all maps within a vector by sum key value combinations
@@ -210,6 +244,7 @@ map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps){
 	return ret_map;
 }
 
+// thread function to count word frequency for a subsection of text and store within map
 void* thread_count(void *params){
 	// unpack parameters
 	thread_wrapper thread_params = *reinterpret_cast<thread_wrapper*>(params);
@@ -243,7 +278,7 @@ void* thread_count(void *params){
 		auto map_iter = freq_map->find(temp);
 
 		if(map_iter != freq_map->end()){
-			// increment our words count
+			// increment our words count if word already exists
 			map_iter->second++;
 		}else{
 			// add the word to our dictionary, set count to zero
