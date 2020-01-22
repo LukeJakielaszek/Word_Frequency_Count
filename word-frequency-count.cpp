@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <ctype.h>
 #include <map>
+#include <chrono>
 
 using namespace std;
 
@@ -25,6 +26,9 @@ void display_map(map<string, int> map_a);
 void free_vect(vector<map<string, int>*> *maps);
 
 int main(int argc, char ** argv) {
+	// get the start execution time
+	auto start_time = chrono::high_resolution_clock::now();
+
 	// ensure proper command line arguments	
 	if (argc != 3) {
 		printf("ERROR: Invalid Number of Command Line Arguments [%d]\n", argc);
@@ -60,9 +64,6 @@ int main(int argc, char ** argv) {
 			// add word to vector
 			words.push_back(buffer);
 		}
-
-		// display number of words read
-		printf("Read %lu words\n", words.size());
 
 		// close the file stream
 		input_stream.close();
@@ -128,38 +129,54 @@ int main(int argc, char ** argv) {
 		pthread_join(threads[i], NULL);
 	}
 
-	cout << "DONE\n";
-
+	// combine each thread's dictionary into one final version
 	map<string, int> *map_sum = combine_dicts(&frequency_maps);
 
 	// free the allocated maps within the vector
 	free_vect(&frequency_maps);
 
+	// display the final map
 	display_map(*map_sum);
+
+	// free the final map
+	delete map_sum;
+
+	// get the end execution time
+	auto end_time = chrono::high_resolution_clock::now();
+
+	// cast the total execution time to milliseconds
+	double execution_time = chrono::duration_cast<chrono::milliseconds>(end_time-start_time).count();
+
+	// display execution time
+	printf("Execution Time : [%lf] milliseconds\n", execution_time);
 
 	return 0;
 }
 
+// free a vector with malloc'd indices
 void free_vect(vector<map<string, int>*> *maps){
-	for(vector<map<string,int>*>::iterator it = maps->begin(); it != maps->end(); ++it){
-		map<string,int> * map_a = *it;
-
-		delete map_a;
+	// loop through the vector
+	for(auto it = maps->begin(); it != maps->end(); ++it){
+		// free each indice
+		delete *it;
 	}
 }
 
+// display all keys with corresponding count of a map
 void display_map(map<string, int> map_a){
-	for(map<string, int>::iterator iter = map_a.begin(); iter != map_a.end(); ++iter){
+	// loop through each key
+	for(auto iter = map_a.begin(); iter != map_a.end(); ++iter){
+		// display the key and count
 		cout << "[" << iter->first << "] : [" << iter->second << "]" << endl;
 	}
 
+	// display the size of the map
 	cout << "Size " << map_a.size() << endl;
 }
 
+// combines all maps within a vector by sum key value combinations
 map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps){
-	cout << "Combining dictionaries" << endl;
-
-	// allocate a map on the heap
+	// allocate a returnable map on the heap
 	map<string, int> *ret_map = new map<string, int>;
 
 	// iterator for looping
@@ -167,8 +184,6 @@ map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps){
 
 	// for every thread's dictionary
 	for(vect_it = frequency_maps->begin(); vect_it != frequency_maps->end(); ++vect_it){
-		cout << "looping through maps" << endl;
-
 		// get the current map
 		map<string, int> *freq_map = *vect_it;
 
@@ -177,8 +192,6 @@ map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps){
 
 		// for every key in the dictionary
 		for(map_iter = freq_map->begin(); map_iter != freq_map->end(); ++map_iter){
-			cout << "checking word " << map_iter->first << endl;
-
 			// check if the word is within the returnable map
 			auto iter = ret_map->find(map_iter->first);
 
