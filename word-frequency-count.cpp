@@ -80,6 +80,8 @@ int main(int argc, char ** argv) {
 			words.push_back(buffer);
 		}
 
+		cout << "word count " << words.size() << endl;
+
 		// close the file stream
 		input_stream.close();
 	} else {
@@ -141,6 +143,7 @@ int main(int argc, char ** argv) {
 
 	// main waits for each thread to finish
 	for(int i = 0; i < num_segments; i++){
+		cout << "Joined " << i << endl;
 		pthread_join(threads[i], NULL);
 	}
 
@@ -156,7 +159,15 @@ int main(int argc, char ** argv) {
 	// cast the total execution time to milliseconds
 	double execution_time = chrono::duration_cast<chrono::milliseconds>(end_time-start_time).count();
 
+	// write the frequency count and other stats to file
 	write_output(&out_file_name, num_segments, &in_file, execution_time, *map_sum);
+
+	int sum = 0;
+
+	for(auto it = map_sum->begin(); it != map_sum->end(); ++it){
+		sum+= it->second;
+	}
+	cout << "sum " << sum << endl;
 
 	// free the final map
 	delete map_sum;
@@ -164,6 +175,7 @@ int main(int argc, char ** argv) {
 	return 0;
 }
 
+// writes stats and map to an output file
 int write_output(const string *out_file, int num_threads, const string *in_file, double exec_time, map<string, int> freq_map){
 	// set up file writing stream
 	ofstream out_stream;
@@ -273,17 +285,19 @@ void* thread_count(void *params){
 			// skip empty elements
 			continue;
 		}
-		
-		// check if word is in dictionary
-		auto map_iter = freq_map->find(temp);
 
-		if(map_iter != freq_map->end()){
+		(*freq_map)[temp]++;
+
+		// check if word is in dictionary
+		//auto map_iter = freq_map->find(temp);
+
+		//if(map_iter != freq_map->end()){
 			// increment our words count if word already exists
-			map_iter->second++;
-		}else{
+		//	map_iter->second++;
+		//}else{
 			// add the word to our dictionary, set count to zero
-			freq_map->insert({temp, 1});
-		}
+		//	freq_map->insert({temp, 1});
+		//}
 	}
 
 	return 0;
