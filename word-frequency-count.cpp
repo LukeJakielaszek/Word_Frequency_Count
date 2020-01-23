@@ -116,26 +116,28 @@ int main(int argc, char ** argv) {
 		}
 
 		// declare a wrapper struct to pass multiple items to thread
-		thread_wrapper thread_params;
+		thread_wrapper *thread_params = (thread_wrapper*)malloc(sizeof(thread_wrapper));
 
 		// store a reference to the vector of words
-		thread_params.words = &words;
+		thread_params->words = &words;
 
 		// create and store a reference to the current threads dictionary
 		map<string, int> *freq_map = new map<string,int>();
 
 		frequency_maps.push_back(freq_map);
-		thread_params.freq_map = freq_map;
+		thread_params->freq_map = freq_map;
 
 		// store the start and end location for the thread to work within the word vector
-		thread_params.start = start;
-		thread_params.end = end;
+		thread_params->start = start;
+		thread_params->end = end;
 
 		// store the thread_id for debugging
-		thread_params.thread_id = i;
+		thread_params->thread_id = i;
+
+		cout << "Before thread " << start << " " << end << " " << thread_params->start << " " << thread_params->end << endl;
 
 		// create our thread
-		pthread_create(&threads[i], NULL, thread_count, (void*)&thread_params);
+		pthread_create(&threads[i], NULL, thread_count, (void*)thread_params);
 		
 		// update the start location to the current end location
 		start = end;
@@ -265,11 +267,14 @@ void* thread_count(void *params){
 	vector<string> words = *thread_params.words;
 	map<string, int> *freq_map = thread_params.freq_map;
 
+	std::cout << "Before loop " << start << " " << end << endl;
+
 	// iterate through the thread's assigned section of vector of words
-	for(vector<string>::iterator iter = words.begin() + start; iter != words.begin() + end; ++ iter){
+	for(int i = start; i < end; ++i){
+	//for(vector<string>::iterator iter = words.begin() + start; iter != words.begin() + end; ++iter){
 		// grab the current word
-		string word = (string)*iter;
-		
+		//string word = (string)*iter;
+		string word = words[i];
 		// preprocessed word
 		string temp = "";
 
@@ -286,19 +291,11 @@ void* thread_count(void *params){
 			continue;
 		}
 
+		// increment count of word in dictionary, if not there, sets to zero
 		(*freq_map)[temp]++;
-
-		// check if word is in dictionary
-		//auto map_iter = freq_map->find(temp);
-
-		//if(map_iter != freq_map->end()){
-			// increment our words count if word already exists
-		//	map_iter->second++;
-		//}else{
-			// add the word to our dictionary, set count to zero
-		//	freq_map->insert({temp, 1});
-		//}
 	}
+
+	cout << "Thread Complete " << endl;
 
 	return 0;
 }

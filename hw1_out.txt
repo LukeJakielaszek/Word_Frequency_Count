@@ -1,6 +1,6 @@
 Number of Threads : [5]
 Input File Name : [Sample.txt]
-Execution Time (milliseconds) : [192]
+Execution Time (milliseconds) : [225]
 
 Word Frequency :
 	[A] : [4066]
