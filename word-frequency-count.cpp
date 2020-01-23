@@ -76,11 +76,14 @@ int main(int argc, char ** argv) {
 			// read a word
 			input_stream >> buffer;
 
-			// add word to vector
-			words.push_back(buffer);
+			try{
+				// add word to vector
+				words.push_back(buffer);
+			}catch(bad_alloc &){
+				cout << "ERROR: Memory Allocation Failure" << endl;
+				return -3;
+			}
 		}
-
-		cout << "word count " << words.size() << endl;
 
 		// close the file stream
 		input_stream.close();
@@ -116,15 +119,28 @@ int main(int argc, char ** argv) {
 		}
 
 		// declare a wrapper struct to pass multiple items to thread
-		thread_wrapper *thread_params = (thread_wrapper*)malloc(sizeof(thread_wrapper));
+		thread_wrapper *thread_params = reinterpret_cast<thread_wrapper*>(malloc(sizeof(thread_wrapper)));
+
+		if(thread_params == NULL){
+			cout << "ERROR: Malloc Failure" << endl;
+			return -4;
+		}
 
 		// store a reference to the vector of words
 		thread_params->words = &words;
 
 		// create and store a reference to the current threads dictionary
-		map<string, int> *freq_map = new map<string,int>();
+		map<string, int> *freq_map;
+		
+		try{
+			freq_map = new map<string,int>();
 
-		frequency_maps.push_back(freq_map);
+			frequency_maps.push_back(freq_map);
+		}catch(bad_alloc &){
+			cout << "ERROR: Memory Allocation Error" << endl;
+			return -2;
+		}
+		
 		thread_params->freq_map = freq_map;
 
 		// store the start and end location for the thread to work within the word vector
@@ -133,8 +149,6 @@ int main(int argc, char ** argv) {
 
 		// store the thread_id for debugging
 		thread_params->thread_id = i;
-
-		cout << "Before thread " << start << " " << end << " " << thread_params->start << " " << thread_params->end << endl;
 
 		// create our thread
 		pthread_create(&threads[i], NULL, thread_count, (void*)thread_params);
@@ -145,7 +159,6 @@ int main(int argc, char ** argv) {
 
 	// main waits for each thread to finish
 	for(int i = 0; i < num_segments; i++){
-		cout << "Joined " << i << endl;
 		pthread_join(threads[i], NULL);
 	}
 
@@ -167,9 +180,8 @@ int main(int argc, char ** argv) {
 	int sum = 0;
 
 	for(auto it = map_sum->begin(); it != map_sum->end(); ++it){
-		sum+= it->second;
+		sum += it->second;
 	}
-	cout << "sum " << sum << endl;
 
 	// free the final map
 	delete map_sum;
@@ -224,34 +236,42 @@ void free_vect(vector<map<string, int>*> *maps){
 
 // combines all maps within a vector by sum key value combinations
 map<string, int>* combine_dicts(vector<map<string, int>*> *frequency_maps){
-	// allocate a returnable map on the heap
-	map<string, int> *ret_map = new map<string, int>;
+	// returnable map on the heap
+	map<string, int> *ret_map;
+	
+	try{
+		// allocate the map
+		ret_map = new map<string, int>;
 
-	// iterator for looping
-	vector<map<string, int>*>::iterator vect_it;
+		// iterator for looping
+		vector<map<string, int>*>::iterator vect_it;
 
-	// for every thread's dictionary
-	for(vect_it = frequency_maps->begin(); vect_it != frequency_maps->end(); ++vect_it){
-		// get the current map
-		map<string, int> *freq_map = *vect_it;
+		// for every thread's dictionary
+		for(vect_it = frequency_maps->begin(); vect_it != frequency_maps->end(); ++vect_it){
+			// get the current map
+			map<string, int> *freq_map = *vect_it;
 
-		// iterator for looping through keys
-		map<string, int>::iterator map_iter; 
+			// iterator for looping through keys
+			map<string, int>::iterator map_iter; 
 
-		// for every key in the dictionary
-		for(map_iter = freq_map->begin(); map_iter != freq_map->end(); ++map_iter){
-			// check if the word is within the returnable map
-			auto iter = ret_map->find(map_iter->first);
+			// for every key in the dictionary
+			for(map_iter = freq_map->begin(); map_iter != freq_map->end(); ++map_iter){
+				// check if the word is within the returnable map
+				auto iter = ret_map->find(map_iter->first);
 
-			// if not, set value to zer0
-			if(iter == ret_map->end()){
-				// add the word to our dictionary, set count to zero
-				ret_map->insert({map_iter->first, 0});
+				// if not, set value to zer0
+				if(iter == ret_map->end()){
+					// add the word to our dictionary, set count to zero
+					ret_map->insert({map_iter->first, 0});
+				}
+
+				// increment count for current key
+				(*ret_map)[map_iter->first] += map_iter->second;
 			}
-
-			// increment count for current key
-			(*ret_map)[map_iter->first] += map_iter->second;
 		}
+	}catch(bad_alloc &){
+		cout << "ERROR: Memory Allocation Error" << endl;
+		exit(-5);
 	}
 
 	// return map with summed counts
@@ -267,14 +287,11 @@ void* thread_count(void *params){
 	vector<string> words = *thread_params.words;
 	map<string, int> *freq_map = thread_params.freq_map;
 
-	std::cout << "Before loop " << start << " " << end << endl;
-
 	// iterate through the thread's assigned section of vector of words
-	for(int i = start; i < end; ++i){
-	//for(vector<string>::iterator iter = words.begin() + start; iter != words.begin() + end; ++iter){
+	for(vector<string>::iterator iter = words.begin() + start; iter != words.begin() + end; ++iter){
 		// grab the current word
-		//string word = (string)*iter;
-		string word = words[i];
+		string word = (string)*iter;
+	
 		// preprocessed word
 		string temp = "";
 
@@ -295,7 +312,8 @@ void* thread_count(void *params){
 		(*freq_map)[temp]++;
 	}
 
-	cout << "Thread Complete " << endl;
+	// free the allocated thread parameter struct
+	free(params);
 
 	return 0;
 }
